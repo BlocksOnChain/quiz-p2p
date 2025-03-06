@@ -32,7 +32,7 @@ export default function Home() {
             <h3 className="text-lg font-semibold text-yellow-800 mb-2">⚠️ Connection Notice</h3>
             <p className="text-yellow-700 mb-2">
               This app works best in a secure context (HTTPS or localhost).
-              You're currently using an insecure connection, which may limit some P2P functionality.
+              You&apos;re currently using an insecure connection, which may limit some P2P functionality.
             </p>
             <p className="text-sm text-yellow-600">
               For the best experience, please access via <strong>https://</strong> or <strong>localhost</strong> instead of an IP address.

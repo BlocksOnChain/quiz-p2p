@@ -5,7 +5,7 @@ import { webSockets } from '@libp2p/websockets';
 import { webRTC, WebRTCTransportInit } from '@libp2p/webrtc';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
-import { gossipsub } from '@chainsafe/libp2p-gossipsub';
+import { gossipsub, GossipSub } from '@chainsafe/libp2p-gossipsub';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
@@ -182,7 +182,7 @@ export const initLibp2p = async (): Promise<Libp2p> => {
 
 // Start custom signaling on a separate topic to avoid conflicts with pubsub-peer-discovery
 const startCustomSignaling = async (node: Libp2p): Promise<void> => {
-  const pubsub = node.services.pubsub as any;
+  const pubsub = node.services.pubsub as GossipSub;
   
   // Get bootstrap addresses
   const bootstrapAddrs = getBootstrapAddresses();
@@ -208,7 +208,7 @@ const startCustomSignaling = async (node: Libp2p): Promise<void> => {
   }, 5000); // Every 5 seconds
   
   // Listen for other peers
-  pubsub.addEventListener('message', async (evt: any) => {
+  pubsub.addEventListener('message', async (evt: { detail: { topic: string; data: Uint8Array } }) => {
     if (evt.detail.topic === CUSTOM_SIGNALING_TOPIC) {
       try {
         // Simple string message format that won't conflict with pubsub-peer-discovery
@@ -235,9 +235,10 @@ const startCustomSignaling = async (node: Libp2p): Promise<void> => {
                     });
                     console.log('Added address for peer:', message.peerId);
                   } catch (err) {
-                    console.warn('Failed to patch peer store:', err);
+                    console.warn('Failed to patch peer store:', err instanceof Error ? err.message : 'Unknown error');
                   }
-                } catch (e) {
+                } catch (_) {
+                  // Use underscore for unused variable instead of 'e'
                   console.warn('Invalid multiaddr:', addrStr);
                 }
               }
@@ -280,21 +281,20 @@ const startCustomSignaling = async (node: Libp2p): Promise<void> => {
   // Regularly attempt to connect to known bootstrap nodes
   setInterval(async () => {
     try {
-      // Use the defined bootstrap addresses
-      const bootstrapAddrs = getBootstrapAddresses();
-      for (const addrStr of bootstrapAddrs) {
+      for (const addrStr of getBootstrapAddresses()) {
         try {
           // Convert the string address to a multiaddr before dialing
           const ma = multiaddr(addrStr);
           await node.dial(ma);
           console.log(`Connected to bootstrap node: ${addrStr}`);
           break; // Stop after finding one that works
-        } catch (e) {
+        } catch (error) {
+          // No need to assign to a variable
           console.log(`Failed to connect to bootstrap node: ${addrStr}`);
         }
       }
     } catch (error) {
-      console.warn('Bootstrap connection failed:', error instanceof Error ? error.message : error);
+      console.warn('Bootstrap connection failed:', error instanceof Error ? error.message : 'Unknown error');
     }
   }, 60000); // Every minute
 };
@@ -313,16 +313,17 @@ export const stopLibp2p = async (): Promise<void> => {
   }
 };
 
-// Helper for encoding/decoding messages
-export const encodeMessage = (data: any): Uint8Array => {
+// Helper for encoding/decoding messages with proper type annotations
+export const encodeMessage = (data: Record<string, unknown>): Uint8Array => {
   return fromString(JSON.stringify(data));
 };
 
-export const decodeMessage = (bytes: Uint8Array): any => {
+export const decodeMessage = (bytes: Uint8Array): Record<string, unknown> | null => {
   try {
     return JSON.parse(toString(bytes));
-  } catch (e) {
-    console.error('Failed to decode message:', e);
+  } catch (error) {
+    // No need to assign to a variable
+    console.error('Failed to decode message');
     return null;
   }
 }; 

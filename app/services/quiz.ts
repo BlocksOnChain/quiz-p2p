@@ -3,8 +3,8 @@
 import { Libp2p } from 'libp2p';
 import { initLibp2p, encodeMessage, decodeMessage, getPeerId } from '../lib/libp2p';
 import { v4 as uuidv4 } from 'uuid';
-import { multiaddr } from '@multiformats/multiaddr';
 import { peerIdFromString } from '@libp2p/peer-id';
+import { GossipSub } from '@chainsafe/libp2p-gossipsub';
 
 // Quiz message types
 export interface Question {
@@ -56,6 +56,13 @@ const isSecureContext = (): boolean => {
   return typeof window !== 'undefined' && 
          (window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost');
 };
+
+// Add type annotation for pubsub operations
+interface PubSubMessage {
+  topic: string;
+  data: Uint8Array;
+  from?: string;
+}
 
 // Quiz service class to handle quiz operations
 export class QuizService {
@@ -240,7 +247,7 @@ export class QuizService {
     if (this.quizTopic) {
       try {
         // Unsubscribe from old topic
-        const pubsub = this.node.services.pubsub as any;
+        const pubsub = this.node.services.pubsub as GossipSub;
         await pubsub.unsubscribe(this.quizTopic);
         console.log(`Unsubscribed from previous topic: ${this.quizTopic}`);
         
@@ -305,7 +312,7 @@ export class QuizService {
       if (this.quizTopic) {
         try {
           // Unsubscribe from old topic
-          const pubsub = this.node.services.pubsub as any;
+          const pubsub = this.node.services.pubsub as GossipSub;
           await pubsub.unsubscribe(this.quizTopic);
           console.log(`Unsubscribed from previous topic: ${this.quizTopic}`);
           
@@ -409,8 +416,8 @@ export class QuizService {
     
     // Send the message multiple times to increase delivery probability
     for (let i = 0; i < 3; i++) {
-      const messageData = encodeMessage(announcement);
-      const pubsub = this.node.services.pubsub as any;
+      const messageData = encodeMessage(announcement as unknown as Record<string, unknown>);
+      const pubsub = this.node.services.pubsub as GossipSub;
       await pubsub.publish(this.quizTopic, messageData);
       
       // Short delay between retries
@@ -437,8 +444,8 @@ export class QuizService {
     
     // Send the message multiple times to increase delivery probability
     for (let i = 0; i < 3; i++) {
-      const messageData = encodeMessage(ack);
-      const pubsub = this.node.services.pubsub as any;
+      const messageData = encodeMessage(ack as unknown as Record<string, unknown>);
+      const pubsub = this.node.services.pubsub as GossipSub;
       await pubsub.publish(this.quizTopic, messageData);
       
       // Short delay between retries
@@ -473,12 +480,12 @@ export class QuizService {
     }
 
     // Subscribe to the topic
-    const pubsub = this.node.services.pubsub as any;
+    const pubsub = this.node.services.pubsub as GossipSub;
     await pubsub.subscribe(this.quizTopic);
     
     console.log(`Subscribed to topic: ${this.quizTopic}`);
     
-    // Set up message handler
+    // Set up message handler using 'any' type for now
     pubsub.addEventListener('message', (evt: any) => {
       const { topic, data } = evt.detail;
       
@@ -486,23 +493,24 @@ export class QuizService {
         const message = decodeMessage(data);
         if (!message) return;
         
+        // Use type assertions when converting message to specific types
         if (typeof message === 'object' && message !== null) {
           const msgType = (message as any).type;
           switch (msgType) {
             case 'question':
-              this.handleQuestionMessage(message as Question);
+              this.handleQuestionMessage(message as unknown as Question);
               break;
             case 'answer':
-              this.handleAnswerMessage(message as Answer);
+              this.handleAnswerMessage(message as unknown as Answer);
               break;
             case 'join':
-              this.handleJoinMessage(message as JoinAnnouncement);
+              this.handleJoinMessage(message as unknown as JoinAnnouncement);
               break;
             case 'presence_ack':
-              this.handlePresenceAckMessage(message as PresenceAck);
+              this.handlePresenceAckMessage(message as unknown as PresenceAck);
               break;
             case 'direct_connection':
-              this.handleDirectConnectionMessage(message as DirectConnectionInfo);
+              this.handleDirectConnectionMessage(message as unknown as DirectConnectionInfo);
               break;
             default:
               console.warn('Unknown message type:', message);
@@ -524,19 +532,19 @@ export class QuizService {
             const msgType = (message as any).type;
             switch (msgType) {
               case 'question':
-                this.handleQuestionMessage(message as Question);
+                this.handleQuestionMessage(message as unknown as Question);
                 break;
               case 'answer':
-                this.handleAnswerMessage(message as Answer);
+                this.handleAnswerMessage(message as unknown as Answer);
                 break;
               case 'join':
-                this.handleJoinMessage(message as JoinAnnouncement);
+                this.handleJoinMessage(message as unknown as JoinAnnouncement);
                 break;
               case 'presence_ack':
-                this.handlePresenceAckMessage(message as PresenceAck);
+                this.handlePresenceAckMessage(message as unknown as PresenceAck);
                 break;
               case 'direct_connection':
-                this.handleDirectConnectionMessage(message as DirectConnectionInfo);
+                this.handleDirectConnectionMessage(message as unknown as DirectConnectionInfo);
                 break;
             }
           }
@@ -646,8 +654,8 @@ export class QuizService {
     
     // Send the question multiple times to increase delivery probability
     for (let i = 0; i < 3; i++) {
-      const messageData = encodeMessage(question);
-      const pubsub = this.node.services.pubsub as any;
+      const messageData = encodeMessage(question as unknown as Record<string, unknown>);
+      const pubsub = this.node.services.pubsub as GossipSub;
       await pubsub.publish(this.quizTopic, messageData);
       
       // Short delay between retries
@@ -693,8 +701,8 @@ export class QuizService {
     
     // Send the answer multiple times to increase delivery probability
     for (let i = 0; i < 3; i++) {
-      const messageData = encodeMessage(answerMsg);
-      const pubsub = this.node.services.pubsub as any;
+      const messageData = encodeMessage(answerMsg as unknown as Record<string, unknown>);
+      const pubsub = this.node.services.pubsub as GossipSub;
       await pubsub.publish(this.quizTopic, messageData);
       
       // Short delay between retries
@@ -785,7 +793,7 @@ export class QuizService {
     // Unsubscribe from quiz topic if applicable
     if (this.node && this.quizTopic) {
       try {
-        const pubsub = this.node.services.pubsub as any;
+        const pubsub = this.node.services.pubsub as GossipSub;
         await pubsub.unsubscribe(this.quizTopic);
         console.log(`Unsubscribed from topic: ${this.quizTopic}`);
       } catch (error) {

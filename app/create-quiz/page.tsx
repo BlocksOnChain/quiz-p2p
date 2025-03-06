@@ -1,18 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { getQuizService, Question, Answer } from '../services/quiz';
+import { getQuizService, Answer } from '../services/quiz';
 
 export default function CreateQuiz() {
-  const router = useRouter();
   const [quizName, setQuizName] = useState('');
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<string[]>(['', '', '', '']);
   const [isCreating, setIsCreating] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [participants, setParticipants] = useState<Set<string>>(new Set());
   const [connectionStatus, setConnectionStatus] = useState<string>("Initializing...");
@@ -246,7 +243,7 @@ export default function CreateQuiz() {
             <h3 className="font-semibold text-lg mb-2">Security Warning</h3>
             <p className="mb-2">
               P2P connections require a secure context (HTTPS or localhost).
-              You're currently using an insecure connection which may prevent creating or hosting quizzes.
+              You&apos;re currently using an insecure connection which may prevent creating or hosting quizzes.
             </p>
             <p>
               Please access this app via <strong>https://</strong> or <strong>localhost</strong> instead of an IP address.
@@ -408,9 +405,9 @@ export default function CreateQuiz() {
               <div className="mt-4 text-sm">
                 <h3 className="font-semibold mb-2">Troubleshooting Tips:</h3>
                 <ul className="list-disc pl-5 text-xs space-y-1">
-                  <li>If participants can't connect, make sure they're using a modern browser like Chrome or Firefox</li>
+                  <li>If participants can&apos;t connect, make sure they&apos;re using a modern browser like Chrome or Firefox</li>
                   <li>Network firewalls might block P2P connections, try connecting from a different network</li>
-                  <li>If questions aren't being received, try sending them again</li>
+                  <li>If questions aren&apos;t being received, try sending them again</li>
                   <li>The application uses fallback relay servers if direct connections fail</li>
                 </ul>
               </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { getQuizService, Question } from '../../services/quiz';
 
 // A countdown component for the 5-second delay
@@ -95,7 +96,7 @@ export default function QuizRoom() {
       
       cleanup();
     };
-  }, [roomCode]);
+  }, [roomCode, isInitialized]);
 
   // Submit an answer
   const handleSubmitAnswer = async () => {
@@ -124,9 +125,9 @@ export default function QuizRoom() {
         <div className="p-8 bg-white rounded-lg shadow-md">
           <h1 className="text-2xl font-bold mb-4 text-red-600">Error</h1>
           <p className="mb-4">{error}</p>
-          <a href="/join-quiz" className="text-blue-600 hover:text-blue-800">
+          <Link href="/join-quiz" className="text-blue-600 hover:text-blue-800">
             Back to Join Quiz
-          </a>
+          </Link>
         </div>
       </div>
     );

@@ -157,7 +157,7 @@ export default function JoinQuiz() {
             <h3 className="font-semibold mb-1">Security Warning</h3>
             <p className="text-sm">
               P2P connections require a secure context (HTTPS or localhost).
-              You're currently using an insecure connection which may prevent joining quizzes.
+              You&apos;re currently using an insecure connection which may prevent joining quizzes.
             </p>
             <p className="text-sm mt-2">
               Please access this app via <strong>https://</strong> or <strong>localhost</strong> instead of an IP address.
@@ -193,7 +193,7 @@ export default function JoinQuiz() {
         </form>
         
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Don't have a room code?</p>
+          <p className="text-gray-600 mb-4">Don&apos;t have a room code?</p>
           <Link href="/create-quiz" className="text-blue-600 hover:text-blue-800">
             Create your own quiz
           </Link>
@@ -205,7 +205,7 @@ export default function JoinQuiz() {
         <div className="mb-4">
           <h3 className="font-medium text-gray-700 mb-2">Troubleshooting Tips:</h3>
           <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
-            <li>Make sure you're using a modern browser (Chrome or Firefox work best)</li>
+            <li>Make sure you&apos;re using a modern browser (Chrome or Firefox work best)</li>
             <li>Firewalls or corporate networks may block P2P connections</li>
             <li>Double-check that you entered the correct room code</li>
             <li>Try connecting from a different network if possible</li>
