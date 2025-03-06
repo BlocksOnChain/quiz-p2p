@@ -77,20 +77,40 @@ export class RTCService {
     this.signaling.onPeerJoin(this.handlePeerJoin.bind(this));
     this.signaling.onOffer(this.handleOffer.bind(this));
     this.signaling.onAnswer(this.handleAnswer.bind(this));
+    this.signaling.onIceCandidate(this.handleIceCandidate.bind(this));
     this.signaling.onError(this.handleSignalingError.bind(this));
   }
   
   // Start the RTC service and join a room
   async start(): Promise<void> {
     try {
-      const peers = await this.signaling.join();
+      console.log(`Starting RTC service for room ${this.roomId} as ${this.isHost ? 'host' : 'participant'}`);
       
-      // Connect to existing peers - only if we're the host
-      // For non-hosts, wait for them to initiate the connection
-      if (this.isHost) {
+      // Join the signaling room
+      const peers = await this.signaling.join();
+      console.log(`Joined room with ${peers.length} peers`);
+      
+      // Connect to existing peers
+      if (peers.length > 0) {
+        console.log(`Connecting to ${peers.length} existing peers`);
+        
+        // If we're the host, we initiate connections to all peers
+        // If we're not the host, we only connect to the host
         for (const peer of peers) {
-          this.connectToPeer(peer.peerId, peer.isHost, true);
+          // Connect to the host (if we're not the host)
+          if (!this.isHost && peer.isHost) {
+            console.log(`Connecting to host ${peer.peerId}`);
+            await this.connectToPeer(peer.peerId, peer.isHost, true);
+          }
+          
+          // Connect to all peers (if we're the host)
+          if (this.isHost) {
+            console.log(`Host connecting to peer ${peer.peerId}`);
+            await this.connectToPeer(peer.peerId, peer.isHost, true);
+          }
         }
+      } else {
+        console.log('No existing peers in the room');
       }
       
       this.updatePeerCount();
@@ -165,8 +185,18 @@ export class RTCService {
       // Set up ICE candidate handling
       connection.onicecandidate = (event) => {
         if (event.candidate) {
-          // In a real implementation, we would send this candidate to the peer
-          console.log('ICE candidate:', event.candidate);
+          // Log more detailed information about the candidate
+          const candidateInfo = event.candidate.toJSON();
+          const candidateType = candidateInfo.candidate ? 
+                               candidateInfo.candidate.split(' ')[7] || 'unknown' : 
+                               'empty';
+          
+          console.log(`ICE candidate (${candidateType}):`);
+          
+          // Send the ICE candidate to the peer
+          this.signaling.sendIceCandidate(peerId, candidateInfo);
+        } else {
+          console.log('ICE gathering completed, all candidates sent');
         }
       };
       
@@ -594,6 +624,44 @@ export class RTCService {
   
   onPeerCountChange(callback: (count: number) => void): void {
     this.onPeerCountChangeCallback = callback;
+  }
+  
+  // Handle an ICE candidate from a peer
+  private async handleIceCandidate(from: string, candidateInit: RTCIceCandidateInit): Promise<void> {
+    try {
+      // First, find the peer connection or create it if it doesn't exist
+      let peerConnection = this.connections.get(from);
+      
+      if (!peerConnection) {
+        console.log(`No connection found for peer ${from}, setting up connection before adding ICE candidate`);
+        await this.connectToPeer(from, false, false);
+        peerConnection = this.connections.get(from);
+        if (!peerConnection) {
+          console.error(`Failed to create connection for peer ${from}`);
+          return;
+        }
+      }
+      
+      // If we're already fully connected, no need to process candidates
+      if (peerConnection.state === ConnectionState.CONNECTED) {
+        console.log(`Already connected to peer ${from}, ignoring ICE candidate`);
+        return;
+      }
+      
+      // Log the candidate information
+      const candidateType = candidateInit.candidate ? 
+                           candidateInit.candidate.split(' ')[7] || 'unknown' : 
+                           'empty';
+      console.log(`Received ICE candidate (${candidateType}) from peer ${from}`);
+      
+      // Create and add the ICE candidate
+      const candidate = new RTCIceCandidate(candidateInit);
+      await peerConnection.connection.addIceCandidate(candidate);
+      console.log(`Added ICE candidate from peer ${from}`);
+    } catch (error) {
+      console.error(`Error handling ICE candidate:`, error);
+      this.handleError(error as Error);
+    }
   }
 }
 

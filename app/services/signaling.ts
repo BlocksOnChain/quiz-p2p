@@ -19,6 +19,11 @@ interface PollResponse {
     answer: RTCSessionDescriptionInit;
     timestamp: number;
   }[];
+  candidates: {
+    from: string;
+    candidate: RTCIceCandidateInit;
+    timestamp: number;
+  }[];
   newPeers: Peer[];
   timestamp: number;
 }
@@ -35,6 +40,7 @@ export class SignalingService {
   private onPeerJoinCallback: ((peer: Peer) => void) | null = null;
   private onOfferCallback: ((from: string, offer: RTCSessionDescriptionInit) => void) | null = null;
   private onAnswerCallback: ((from: string, answer: RTCSessionDescriptionInit) => void) | null = null;
+  private onIceCandidateCallback: ((from: string, candidate: RTCIceCandidateInit) => void) | null = null;
   private onErrorCallback: ((error: Error) => void) | null = null;
   
   constructor(roomId: string, peerId: string, isHost: boolean = false) {
@@ -113,61 +119,72 @@ export class SignalingService {
   // Send an answer to a peer
   async sendAnswer(targetPeerId: string, answer: RTCSessionDescriptionInit): Promise<boolean> {
     try {
-      const response = await fetch('/api/signaling', {
+      const response = await fetch(`/api/rtc/answer`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'answer',
           roomId: this.roomId,
-          peerId: this.peerId,
-          target: targetPeerId,
-          answer
-        })
+          from: this.peerId,
+          to: targetPeerId,
+          answer,
+          timestamp: Date.now()
+        }),
       });
       
-      if (!response.ok) {
-        throw new Error(`Failed to send answer: ${response.statusText}`);
-      }
-      
       const data = await response.json();
-      return data.success === true;
+      return data.success;
     } catch (error) {
       this.handleError(error as Error);
       return false;
     }
   }
   
-  // Poll for updates (offers, answers, new peers)
+  // Send an ICE candidate to a peer
+  async sendIceCandidate(targetPeerId: string, candidate: RTCIceCandidateInit): Promise<boolean> {
+    try {
+      const response = await fetch(`/api/rtc/candidate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roomId: this.roomId,
+          from: this.peerId,
+          to: targetPeerId,
+          candidate,
+          timestamp: Date.now()
+        }),
+      });
+      
+      const data = await response.json();
+      return data.success;
+    } catch (error) {
+      this.handleError(error as Error);
+      return false;
+    }
+  }
+  
+  // Poll for updates
   private async poll(): Promise<void> {
     if (!this.active) return;
     
     try {
-      const response = await fetch('/api/signaling', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          action: 'poll',
-          roomId: this.roomId,
-          peerId: this.peerId,
-          lastPoll: this.lastPollTimestamp
-        })
-      });
+      const response = await fetch(`/api/rtc/poll?roomId=${this.roomId}&peerId=${this.peerId}&timestamp=${this.lastPollTimestamp}`);
       
       if (!response.ok) {
-        throw new Error(`Failed to poll: ${response.statusText}`);
+        throw new Error(`Poll failed with status ${response.status}`);
       }
       
-      const data = await response.json() as PollResponse;
+      const data: PollResponse = await response.json();
       
       if (data.success) {
+        // Update timestamp
         this.lastPollTimestamp = data.timestamp;
         
-        // Process new peers
-        if (data.newPeers && data.newPeers.length > 0) {
+        // Handle new peers
+        if (data.newPeers.length > 0) {
           for (const peer of data.newPeers) {
             if (this.onPeerJoinCallback) {
               this.onPeerJoinCallback(peer);
@@ -175,8 +192,8 @@ export class SignalingService {
           }
         }
         
-        // Process offers
-        if (data.offers && data.offers.length > 0) {
+        // Handle offers
+        if (data.offers.length > 0) {
           for (const { from, offer } of data.offers) {
             if (this.onOfferCallback) {
               this.onOfferCallback(from, offer);
@@ -184,18 +201,26 @@ export class SignalingService {
           }
         }
         
-        // Process answers
-        if (data.answers && data.answers.length > 0) {
+        // Handle answers
+        if (data.answers.length > 0) {
           for (const { from, answer } of data.answers) {
             if (this.onAnswerCallback) {
               this.onAnswerCallback(from, answer);
             }
           }
         }
+        
+        // Handle ICE candidates
+        if (data.candidates && data.candidates.length > 0) {
+          for (const { from, candidate } of data.candidates) {
+            if (this.onIceCandidateCallback) {
+              this.onIceCandidateCallback(from, candidate);
+            }
+          }
+        }
       }
     } catch (error) {
-      console.error('Polling error:', error);
-      // Don't call handleError to avoid spamming the error callback
+      this.handleError(error as Error);
     }
   }
   
@@ -240,6 +265,10 @@ export class SignalingService {
   
   onAnswer(callback: (from: string, answer: RTCSessionDescriptionInit) => void): void {
     this.onAnswerCallback = callback;
+  }
+  
+  onIceCandidate(callback: (from: string, candidate: RTCIceCandidateInit) => void): void {
+    this.onIceCandidateCallback = callback;
   }
   
   onError(callback: (error: Error) => void): void {
