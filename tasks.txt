@@ -1,0 +1,158 @@
+Here is a task file you could use as a prompt for your AI agent:
+
+TITLE: “Browser-Based P2P Live Quiz with libp2p and Next.js + TypeScript”
+
+OVERVIEW:
+We need a real-time, browser-based quiz application that uses libp2p for peer-to-peer networking. The app will be built on Next.js with TypeScript, and will enable a quiz creator to publish questions that participants receive simultaneously. A 5-second delay will synchronize question display across all participants.
+
+1. Project Setup
+	1.	Next.js + TypeScript
+	•	Initialize a new Next.js project using create-next-app --example with-typescript.
+	•	Ensure the project structure adheres to Next.js standards (i.e., pages/, public/, components/).
+	2.	Dependencies
+	•	Install libp2p and required plugins:
+
+npm install libp2p @libp2p/websockets @libp2p/webrtc @libp2p/bootstrap \
+  @chainsafe/libp2p-noise @chainsafe/libp2p-yamux @chainsafe/libp2p-gossipsub \
+  uint8arrays
+
+
+	•	Include any necessary dev tools (ESLint, Prettier) for linting and code style.
+
+	3.	File Structure
+	•	Keep libp2p configuration in a utility or context file (e.g., lib/libp2p.ts).
+	•	Store quiz logic in dedicated modules or service files (e.g., services/quiz.ts).
+
+2. libp2p Configuration (Browser)
+	1.	Transport and Encryption
+	•	Use @libp2p/websockets and @libp2p/webrtc for browser connections.
+	•	Use noise for encryption (@chainsafe/libp2p-noise).
+	•	Use yamux (@chainsafe/libp2p-yamux) as the stream muxer.
+	2.	Peer Discovery
+	•	Use @libp2p/bootstrap for bootstrapping to a known relay node or set of nodes.
+	•	Document how to add multiaddrs in an environment variable (e.g., NEXT_PUBLIC_BOOTSTRAP_ADDRS).
+	3.	PubSub
+	•	Enable GossipSub (@chainsafe/libp2p-gossipsub) for publish-subscribe.
+	•	Use the default config with a single quiz topic (e.g., quiz-topic).
+	4.	Initialization
+	•	Load libp2p only on the client (avoid SSR).
+	•	Start the node (node.start()) and log peer connection events.
+
+3. Quiz Flow Implementation
+	1.	Roles
+	•	Quiz Creator (“Host”):
+	•	Creates the quiz with a name or room code (e.g., quizTopic = "quiz-room-<UUID>").
+	•	Publishes questions (JSON) to that topic using the libp2p pubsub API.
+	•	Participants (“Players”):
+	•	Join the quiz via the same topic subscription.
+	•	Receive questions in real time.
+	2.	Question Publishing
+	•	Host calls pubsub.publish(quizTopic, encodedQuestion) for each question.
+	•	Data format (JSON → Uint8Array). Example:
+
+{
+  "type": "question",
+  "id": "<unique_id>",
+  "text": "<question_text>",
+  "revealTime": "<timestamp>"
+}
+
+
+	3.	Receiving Questions
+	•	All participants subscribe to quizTopic.
+	•	On receiving a message, decode JSON and parse the object.
+	•	Maintain a local question queue or state (currentQuestion).
+	4.	5-Second Delay
+	•	Each participant starts a 5-second timer upon receiving the question.
+	•	Display the question only after the timer elapses.
+	5.	Answer Submission
+	•	Participants publish their answers to a separate topic or a separate message type:
+
+{
+  "type": "answer",
+  "questionId": "<unique_id>",
+  "answer": "<the_answer>"
+}
+
+
+	•	The Host can collect these answers (optional for MVP).
+
+4. UI/UX
+	1.	Quiz Creation
+	•	A Next.js page or component (/create-quiz) that:
+	1.	Prompts for a quiz name.
+	2.	Generates a unique quizTopic.
+	3.	Starts libp2p (if not started).
+	4.	Subscribes to the quiz topic (to see answers).
+	5.	Publishes questions via a simple form.
+	2.	Quiz Join
+	•	A Next.js page or component (/join-quiz/[topic]) that:
+	1.	Reads the quizTopic from the URL.
+	2.	Starts libp2p (if not started).
+	3.	Subscribes to the quiz topic.
+	4.	Displays incoming questions with a 5-second countdown.
+	3.	Question Display
+	•	Show a timer or progress bar counting down from 5 seconds before revealing the question.
+	4.	Answer Section
+	•	Provide UI controls for participants to input their answers.
+	•	Publish answers to a separate topic or with a different message type in the same topic.
+
+5. Technical Requirements and Constraints
+	1.	Next.js
+	•	Use dynamic imports or useEffect hooks to ensure libp2p code runs only client-side.
+	2.	TypeScript
+	•	Use strict typing for question objects, answer objects, peer info, etc.
+	•	Provide definitions for custom events and message payload structures.
+	3.	Scalability
+	•	For the MVP, handle up to ~50 concurrent participants efficiently.
+	•	For large-scale usage, set up multiple relay nodes and keep message sizes minimal.
+	4.	Security
+	•	Use noise encryption for all peer connections.
+	•	Optionally, filter messages so only the Host can publish questions (verify from is Host PeerId).
+	5.	Testing & Debugging
+	•	Enable debug logging in development:
+
+localStorage.setItem('debug', 'libp2p:*')
+
+
+	•	Check peer discovery, pubsub events, and message flow in the browser console.
+
+6. Step-by-Step Tasks
+	1.	Initialize Next.js Project
+	2.	Configure TypeScript (enable strict mode, create tsconfig.json).
+	3.	Install Dependencies (libp2p, relevant transports, gossip, etc.).
+	4.	Create libp2p Utility (lib/libp2p.ts):
+	1.	Dynamic import the modules.
+	2.	Export a function to create or return a singleton libp2p instance.
+	3.	Handle node.start(), peer discovery logs.
+	5.	Create Quiz Service (services/quiz.ts):
+	1.	Provide functions: publishQuestion, subscribeToAnswers, etc.
+	2.	Handle JSON → Uint8Array and vice versa.
+	6.	Create UI Pages:
+	1.	pages/create-quiz.tsx: UI to name quiz, create topic, start node, publish questions.
+	2.	pages/join-quiz/[topic].tsx: UI to join quiz, subscribe to questions, display them after 5s delay, allow answer submission.
+	7.	Implement State Management:
+	1.	Use React hooks (e.g., useState, useEffect) to store current question/answers.
+	2.	Show a countdown overlay or progress bar for the 5-second delay.
+	8.	Publish and Receive Messages:
+	1.	On Host’s side, publish questions to the quiz topic.
+	2.	On Participant’s side, read messages, store in state, start a timer.
+	3.	For answers, either publish on the same topic with a different type or a separate answers topic.
+	9.	Testing:
+	1.	Open two browser windows: one for Host, one for Participant.
+	2.	Check if participant sees the question after ~5s.
+	3.	Verify answers are received by the Host.
+	10.	Optimization & Cleanup:
+	1.	Stop the libp2p node when the quiz ends or on unmount.
+	2.	Log peer connections and test performance with multiple participants.
+
+7. Acceptance Criteria
+	1.	Basic P2P Connection: Confirm that the Host and at least one Participant can connect through the configured bootstrap node or relay.
+	2.	Question Publishing: When the Host publishes a question, all active Participants receive the data.
+	3.	5-Second Delay: Participants see the question after a short countdown.
+	4.	Answer Mechanism: Participants can submit answers, and Host can receive them.
+	5.	No SSR Errors: Next.js renders pages without attempting to run libp2p server-side.
+	6.	Security: All connections are encrypted with Noise.
+	7.	Performance: Up to 50 participants can operate smoothly with minimal delay beyond the 5s timer.
+
+Use the above Task File in your AI-based development workflow to guide the coding process. It details the scope, steps, and requirements for delivering a P2P-based live quiz application.
