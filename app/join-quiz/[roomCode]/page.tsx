@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getQuizService, Question } from '../../services/quiz';
+import { getRTCQuizService, Question } from '../../services/rtc-quiz';
 
 // A countdown component for the 5-second delay
 const CountdownTimer = ({ seconds, onComplete }: { seconds: number, onComplete: () => void }) => {
@@ -48,7 +48,7 @@ export default function QuizRoom() {
     const initAndJoin = async () => {
       try {
         setConnectionStatus("Initializing P2P connection...");
-        const quizService = getQuizService();
+        const quizService = getRTCQuizService();
 
         // Set a timeout to check if we're taking too long to connect
         const connectionTimeout = setTimeout(() => {
@@ -57,8 +57,6 @@ export default function QuizRoom() {
           }
         }, 5000);
         
-        await quizService.init();
-        
         // Set up question handler
         quizService.onQuestion((question) => {
           setCurrentQuestion(question);
@@ -66,6 +64,14 @@ export default function QuizRoom() {
           setSelectedAnswer('');
           setHasSubmitted(false);
         });
+        
+        // Set up connection status handler
+        quizService.onConnectionStatus((status) => {
+          setConnectionStatus(status);
+        });
+        
+        // Initialize
+        await quizService.init();
         
         // Join the quiz room
         setConnectionStatus("Joining quiz room...");
@@ -87,7 +93,7 @@ export default function QuizRoom() {
     return () => {
       const cleanup = async () => {
         try {
-          const quizService = getQuizService();
+          const quizService = getRTCQuizService();
           await quizService.cleanup();
         } catch (error) {
           console.error('Error during cleanup:', error);
@@ -105,7 +111,7 @@ export default function QuizRoom() {
     }
     
     try {
-      const quizService = getQuizService();
+      const quizService = getRTCQuizService();
       await quizService.submitAnswer(currentQuestion.id, selectedAnswer);
       setHasSubmitted(true);
     } catch (error) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getQuizService, Answer } from '../services/quiz';
+import { getRTCQuizService, Answer } from '../services/rtc-quiz';
 
 export default function CreateQuiz() {
   const [quizName, setQuizName] = useState('');
@@ -35,12 +35,12 @@ export default function CreateQuiz() {
     checkSecureContext();
   }, []);
 
-  // Initialize the quiz service
+  // Initialize the RTCQuizService
   useEffect(() => {
     const initQuizService = async () => {
       try {
         setConnectionStatus("Initializing...");
-        const quizService = getQuizService();
+        const quizService = getRTCQuizService();
 
         // Set up answer handler
         quizService.onAnswer((answer) => {
@@ -84,8 +84,15 @@ export default function CreateQuiz() {
           );
         });
         
+        // Set up participant count handler (new feature)
+        quizService.onParticipantCount((count) => {
+          console.log("Participant count:", count);
+          // This ensures we always have the most accurate participant count
+          setParticipants(new Set(Array.from({ length: count }, (_, i) => `peer-${i}`)));
+        });
+        
         // Initialize WITHOUT starting P2P
-        await quizService.init(false);
+        await quizService.init();
         setIsInitialized(true);
         setConnectionStatus("Ready to create a quiz. P2P connection will be established when needed.");
         
@@ -110,7 +117,7 @@ export default function CreateQuiz() {
     return () => {
       const cleanup = async () => {
         try {
-          const quizService = getQuizService();
+          const quizService = getRTCQuizService();
           await quizService.cleanup();
         } catch (error) {
           console.error('Error during cleanup:', error);
@@ -139,7 +146,7 @@ export default function CreateQuiz() {
     );
     
     try {
-      const quizService = getQuizService();
+      const quizService = getRTCQuizService();
       const code = await quizService.createQuiz(quizName);
       setRoomCode(code);
       
@@ -172,7 +179,7 @@ export default function CreateQuiz() {
     }
     
     try {
-      const quizService = getQuizService();
+      const quizService = getRTCQuizService();
       
       // Filter out empty options
       const validOptions = options.filter(opt => opt.trim() !== '');

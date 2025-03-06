@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getQuizService } from '../services/quiz';
+import { getRTCQuizService } from '../services/rtc-quiz';
 
 export default function JoinQuiz() {
   const router = useRouter();
@@ -33,12 +33,12 @@ export default function JoinQuiz() {
     checkSecureContext();
   }, []);
 
-  // Initialize the quiz service - only initialize basic services, not P2P
+  // Initialize the RTCQuizService
   useEffect(() => {
     const initQuizService = async () => {
       try {
         setConnectionStatus("Initializing...");
-        const quizService = getQuizService();
+        const quizService = getRTCQuizService();
         
         // Register connection status callback
         quizService.onConnectionStatus((status) => {
@@ -51,8 +51,8 @@ export default function JoinQuiz() {
           );
         });
         
-        // Initialize WITHOUT starting P2P connections
-        await quizService.init(false);
+        // Initialize WITHOUT starting P2P
+        await quizService.init();
         setIsInitialized(true);
         setConnectionStatus("Ready to join a quiz. Enter a room code to connect.");
         
@@ -77,7 +77,7 @@ export default function JoinQuiz() {
     return () => {
       const cleanup = async () => {
         try {
-          const quizService = getQuizService();
+          const quizService = getRTCQuizService();
           await quizService.cleanup();
         } catch (error) {
           console.error('Error during cleanup:', error);
@@ -106,7 +106,7 @@ export default function JoinQuiz() {
     );
     
     try {
-      const quizService = getQuizService();
+      const quizService = getRTCQuizService();
       await quizService.joinQuiz(roomCode);
       
       // Add successful join to diagnostics
